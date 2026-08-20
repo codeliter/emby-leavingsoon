@@ -36,7 +36,7 @@ public class LeavingSoonScanTask : IScheduledTask
 
     public string Key => "LeavingSoonScan";
 
-    public string Description => "Finds stale movies and seasons, maintains the Leaving Soon collection, and removes items past their grace period via Sonarr/Radarr.";
+    public string Description => "Finds stale movies and series, maintains the Leaving Soon collection, and removes items past their grace period via Sonarr/Radarr.";
 
     public string Category => "Leaving Soon";
 

@@ -55,7 +55,7 @@ public class LeavingSoonScanner
 
         var stale = new List<TrackedCandidate>();
         stale.AddRange(FindStaleMovies(cutoff, minAge, excludedTags, config));
-        stale.AddRange(FindStaleSeasons(cutoff, minAge, excludedTags, config));
+        stale.AddRange(FindStaleSeries(cutoff, minAge, excludedTags, config));
 
         _logger.Info($"[LeavingSoon] Scan found {stale.Count} stale items");
 
@@ -78,7 +78,6 @@ public class LeavingSoonScanner
                     ItemId = candidate.ItemId,
                     Name = candidate.Item.Name,
                     MediaType = candidate.MediaType,
-                    SeasonNumber = candidate.SeasonNumber,
                     AddedToCollectionUtc = now
                 });
             }
@@ -116,7 +115,6 @@ public class LeavingSoonScanner
         public BaseItem Item { get; set; }
         public string ItemId { get; set; }
         public string MediaType { get; set; }
-        public int? SeasonNumber { get; set; }
     }
 
     private static string KeyOf(BaseItem item) => item.Id.ToString("N", CultureInfo.InvariantCulture);
@@ -148,7 +146,7 @@ public class LeavingSoonScanner
         }
     }
 
-    private IEnumerable<TrackedCandidate> FindStaleSeasons(DateTime cutoff, DateTime minAge, HashSet<string> excludedTags, PluginConfiguration config)
+    private IEnumerable<TrackedCandidate> FindStaleSeries(DateTime cutoff, DateTime minAge, HashSet<string> excludedTags, PluginConfiguration config)
     {
         if (!config.EnableSeries)
         {
@@ -157,33 +155,35 @@ public class LeavingSoonScanner
 
         var query = new InternalItemsQuery
         {
-            IncludeItemTypes = new[] { nameof(Season) },
+            IncludeItemTypes = new[] { nameof(Series) },
             Recursive = true
         };
 
-        var seasons = _libraryManager.GetItemList(query).OfType<Season>();
+        var allSeries = _libraryManager.GetItemList(query).OfType<Series>();
 
-        foreach (var season in seasons)
+        foreach (var series in allSeries)
         {
-            if (season.IndexNumber == null || season.IndexNumber == 0 || season.Series == null)
+            if (IsExcluded(series, minAge, excludedTags, config))
             {
                 continue;
             }
 
-            if (IsExcluded(season.Series, minAge, excludedTags, config))
+            var episodeQuery = new InternalItemsQuery
             {
-                continue;
-            }
+                IncludeItemTypes = new[] { nameof(Episode) },
+                AncestorIds = new[] { series.InternalId },
+                Recursive = true
+            };
 
-            var episodes = season.GetEpisodes().Items;
-            if (episodes.Length == 0 || episodes.Any(e => e.DateCreated > minAge))
+            var episodes = _libraryManager.GetItemList(episodeQuery).OfType<Episode>().ToList();
+            if (episodes.Count == 0 || episodes.Any(e => e.DateCreated > minAge))
             {
                 continue;
             }
 
             if (episodes.All(e => IsStale(e, cutoff)))
             {
-                yield return new TrackedCandidate { Item = season, ItemId = KeyOf(season), MediaType = "Season", SeasonNumber = season.IndexNumber };
+                yield return new TrackedCandidate { Item = series, ItemId = KeyOf(series), MediaType = "Series" };
             }
         }
     }
@@ -296,7 +296,7 @@ public class LeavingSoonScanner
 
         if (config.DryRun)
         {
-            Log(config, "dry-run", $"Would remove {entry.MediaType}: {entry.Name}{(entry.SeasonNumber.HasValue ? $" S{entry.SeasonNumber:D2}" : string.Empty)}");
+            Log(config, "dry-run", $"Would remove {entry.MediaType}: {entry.Name}");
             return;
         }
 
@@ -314,22 +314,21 @@ public class LeavingSoonScanner
                     }
                 }
             }
-            else if (entry.MediaType == "Season" && entry.SeasonNumber.HasValue)
+            else if (entry.MediaType == "Series")
             {
-                var series = ((Season)item).Series;
-                var tvdb = series != null && series.ProviderIds.TryGetValue("Tvdb", out var tvdbValue) ? tvdbValue : null;
+                var tvdb = item.ProviderIds.TryGetValue("Tvdb", out var tvdbValue) ? tvdbValue : null;
                 if (int.TryParse(tvdb, out var tvdbId))
                 {
                     var seriesId = await _sonarr.FindSeriesIdByTvdbAsync(tvdbId, cancellationToken).ConfigureAwait(false);
                     if (seriesId.HasValue)
                     {
-                        await _sonarr.DeleteSeasonFilesAsync(seriesId.Value, entry.SeasonNumber.Value, cancellationToken).ConfigureAwait(false);
+                        await _sonarr.DeleteSeriesAsync(seriesId.Value, config.DeleteFiles, cancellationToken).ConfigureAwait(false);
                     }
                 }
             }
 
             entry.RemovedUtc = DateTime.UtcNow;
-            Log(config, "removed", $"{entry.MediaType}: {entry.Name}{(entry.SeasonNumber.HasValue ? $" S{entry.SeasonNumber:D2}" : string.Empty)}");
+            Log(config, "removed", $"{entry.MediaType}: {entry.Name}");
         }
         catch (Exception ex)
         {

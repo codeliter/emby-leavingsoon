@@ -37,7 +37,6 @@ public class TrackedItem
     public string ItemId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string MediaType { get; set; } = string.Empty;
-    public int? SeasonNumber { get; set; }
     public DateTime AddedToCollectionUtc { get; set; }
     public DateTime? RemovedUtc { get; set; }
     public bool Approved { get; set; }

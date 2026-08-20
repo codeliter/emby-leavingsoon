@@ -33,7 +33,6 @@ public class CandidateDto
     public string ItemId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string MediaType { get; set; } = string.Empty;
-    public int? SeasonNumber { get; set; }
     public string AddedToCollectionUtc { get; set; } = string.Empty;
     public bool Approved { get; set; }
 }
@@ -65,7 +64,6 @@ public class LeavingSoonApiService : IService
                 ItemId = t.ItemId,
                 Name = t.Name,
                 MediaType = t.MediaType,
-                SeasonNumber = t.SeasonNumber,
                 AddedToCollectionUtc = t.AddedToCollectionUtc.ToString("o"),
                 Approved = t.Approved
             });

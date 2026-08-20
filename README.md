@@ -7,14 +7,14 @@ Think [Maintainerr](https://github.com/jorenn92/Maintainerr), but native to Emby
 ## How it works
 
 1. A scheduled task (daily by default) scans play data across all users.
-2. Movies and seasons with no play in **X days** (default 180) are added to the *Leaving Soon* collection.
+2. Movies and series with no play in **X days** (default 180) are added to the *Leaving Soon* collection.
 3. Items sit in the collection for a **grace period** (default 14 days) — anyone can watch or rescue them.
 4. After the grace period:
    - **Manual mode** (default): items wait for approval via the plugin API.
    - **Automatic mode**: items are removed immediately.
 5. Removal is delegated to the *arr stack:
    - **Movies** → Radarr `DELETE /api/v3/movie/{id}` (matched by TMDB ID)
-   - **Seasons** → Sonarr episode-file deletion + season unmonitored (matched by TVDB ID). The series itself stays monitored for new content.
+   - **Series** → Sonarr `DELETE /api/v3/series/{id}` (matched by TVDB ID). A series is only a candidate when *no episode* has been watched within the threshold.
 6. Emby's next library scan drops the deleted files from the library.
 
 ## Safety rails
@@ -55,7 +55,7 @@ Dashboard → **Plugins** → **Leaving Soon**:
 | Removal mode | Manual | Manual approval or automatic |
 | Dry run | **on** | Log only, no deletion |
 | Delete files | on | *arr deletes files vs unmonitor only |
-| Include movies / series | on | Series cleanup is per-season |
+| Include movies / series | on | A series is stale only when no episode has been watched within the threshold |
 | Exclude favorites | on | |
 | Excluded tags | — | Comma-separated |
 | Collection name | Leaving Soon | |
