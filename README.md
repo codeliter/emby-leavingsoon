@@ -77,6 +77,7 @@ GET  /LeavingSoon/Audit            # removal audit log
 Requires the .NET 8 SDK (build only; the plugin itself targets netstandard2.0):
 
 ```bash
+dotnet test src/Emby.Plugin.LeavingSoon.Tests/Emby.Plugin.LeavingSoon.Tests.csproj
 dotnet publish src/Emby.Plugin.LeavingSoon/Emby.Plugin.LeavingSoon.csproj -c Release -o out
 ```
 

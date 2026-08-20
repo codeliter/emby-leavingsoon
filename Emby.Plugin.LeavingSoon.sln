@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{6581C2A2-DA87-4ED4-8682-596D5B152F28}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Emby.Plugin.LeavingSoon", "src\Emby.Plugin.LeavingSoon\Emby.Plugin.LeavingSoon.csproj", "{655F1ADF-96EB-43A9-B270-5E0E950433D4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Emby.Plugin.LeavingSoon.Tests", "src\Emby.Plugin.LeavingSoon.Tests\Emby.Plugin.LeavingSoon.Tests.csproj", "{7DC0E70D-9B0D-4D65-9E04-D50217EA4AAE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{655F1ADF-96EB-43A9-B270-5E0E950433D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{655F1ADF-96EB-43A9-B270-5E0E950433D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{655F1ADF-96EB-43A9-B270-5E0E950433D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{655F1ADF-96EB-43A9-B270-5E0E950433D4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7DC0E70D-9B0D-4D65-9E04-D50217EA4AAE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7DC0E70D-9B0D-4D65-9E04-D50217EA4AAE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7DC0E70D-9B0D-4D65-9E04-D50217EA4AAE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7DC0E70D-9B0D-4D65-9E04-D50217EA4AAE}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{655F1ADF-96EB-43A9-B270-5E0E950433D4} = {6581C2A2-DA87-4ED4-8682-596D5B152F28}
+		{7DC0E70D-9B0D-4D65-9E04-D50217EA4AAE} = {6581C2A2-DA87-4ED4-8682-596D5B152F28}
+	EndGlobalSection
+EndGlobal

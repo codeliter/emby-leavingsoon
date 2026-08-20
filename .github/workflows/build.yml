@@ -47,6 +47,9 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Test
+        run: dotnet test src/Emby.Plugin.LeavingSoon.Tests/Emby.Plugin.LeavingSoon.Tests.csproj
+
       - name: Set assembly version
         run: |
           sed -i "s|<AssemblyVersion>.*</AssemblyVersion>|<AssemblyVersion>${{ steps.version.outputs.version }}</AssemblyVersion>|" "$PROJECT"

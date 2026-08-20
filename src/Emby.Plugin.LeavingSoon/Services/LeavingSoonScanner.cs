@@ -21,8 +21,8 @@ public class LeavingSoonScanner
     private readonly IUserDataManager _userDataManager;
     private readonly ICollectionManager _collectionManager;
     private readonly ILogger _logger;
-    private readonly RadarrClient _radarr;
-    private readonly SonarrClient _sonarr;
+    private readonly IMediaRemover _remover;
+    private readonly PluginConfiguration? _configOverride;
 
     public LeavingSoonScanner(
         ILibraryManager libraryManager,
@@ -30,19 +30,41 @@ public class LeavingSoonScanner
         IUserDataManager userDataManager,
         ICollectionManager collectionManager,
         ILogger logger)
+        : this(libraryManager, userManager, userDataManager, collectionManager, logger, new MediaRemover(logger), null)
+    {
+    }
+
+    public LeavingSoonScanner(
+        ILibraryManager libraryManager,
+        IUserManager userManager,
+        IUserDataManager userDataManager,
+        ICollectionManager collectionManager,
+        ILogger logger,
+        IMediaRemover remover,
+        PluginConfiguration? configOverride)
     {
         _libraryManager = libraryManager;
         _userManager = userManager;
         _userDataManager = userDataManager;
         _collectionManager = collectionManager;
         _logger = logger;
-        _radarr = new RadarrClient(logger);
-        _sonarr = new SonarrClient(logger);
+        _remover = remover;
+        _configOverride = configOverride;
+    }
+
+    private PluginConfiguration Config => _configOverride ?? Plugin.Instance.Configuration;
+
+    private void SaveConfig()
+    {
+        if (_configOverride == null)
+        {
+            Plugin.Instance.SaveConfiguration();
+        }
     }
 
     public async Task RunAsync(CancellationToken cancellationToken, IProgress<double> progress)
     {
-        var config = Plugin.Instance.Configuration;
+        var config = Config;
         var now = DateTime.UtcNow;
         var cutoff = now.AddDays(-config.UnwatchedDaysThreshold);
         var minAge = now.AddDays(-config.MinimumLibraryAgeDays);
@@ -65,7 +87,6 @@ public class LeavingSoonScanner
 
         progress.Report(60);
 
-        var graceCutoff = now.AddDays(-config.GracePeriodDays);
         var tracked = config.Tracked;
         var trackedIds = new HashSet<string>(tracked.Select(t => t.ItemId));
 
@@ -96,9 +117,7 @@ public class LeavingSoonScanner
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var due = entry.AddedToCollectionUtc <= graceCutoff;
-            var approved = config.Mode == RemovalMode.Automatic || entry.Approved;
-            if (!due || !approved)
+            if (!CandidateEvaluator.IsDueForRemoval(entry.AddedToCollectionUtc, entry.Approved, config.GracePeriodDays, config.Mode, now))
             {
                 continue;
             }
@@ -106,7 +125,7 @@ public class LeavingSoonScanner
             await RemoveAsync(entry, config, cancellationToken).ConfigureAwait(false);
         }
 
-        Plugin.Instance.SaveConfiguration();
+        SaveConfig();
         progress.Report(100);
     }
 
@@ -176,7 +195,7 @@ public class LeavingSoonScanner
             };
 
             var episodes = _libraryManager.GetItemList(episodeQuery).OfType<Episode>().ToList();
-            if (episodes.Count == 0 || episodes.Any(e => e.DateCreated > minAge))
+            if (episodes.Count == 0 || episodes.Any(e => e.DateCreated.UtcDateTime > minAge))
             {
                 continue;
             }
@@ -190,59 +209,41 @@ public class LeavingSoonScanner
 
     private bool IsExcluded(BaseItem item, DateTime minAge, HashSet<string> excludedTags, PluginConfiguration config)
     {
-        if (item.DateCreated > minAge)
-        {
-            return true;
-        }
-
-        if (item.Tags.Any(t => excludedTags.Contains(t)))
-        {
-            return true;
-        }
-
+        var anyFavorite = false;
         if (config.ExcludeFavorites)
         {
             foreach (var user in _userManager.Users)
             {
                 if (_userDataManager.GetUserData(user, item).IsFavorite)
                 {
-                    return true;
+                    anyFavorite = true;
+                    break;
                 }
             }
         }
 
-        return false;
+        return CandidateEvaluator.IsExcluded(item.DateCreated.UtcDateTime, minAge, item.Tags, excludedTags, anyFavorite);
     }
 
     private bool IsStale(BaseItem item, DateTime cutoff)
     {
-        DateTime? latestPlay = null;
-        var anyPlayed = false;
-
+        var states = new List<PlayState>();
         foreach (var user in _userManager.Users)
         {
             var data = _userDataManager.GetUserData(user, item);
-            if (data.Played)
+            states.Add(new PlayState
             {
-                anyPlayed = true;
-                if (data.LastPlayedDate.HasValue && (latestPlay == null || data.LastPlayedDate > latestPlay))
-                {
-                    latestPlay = data.LastPlayedDate.Value.UtcDateTime;
-                }
-            }
+                Played = data.Played,
+                LastPlayedDateUtc = data.LastPlayedDate.HasValue ? data.LastPlayedDate.Value.UtcDateTime : (DateTime?)null
+            });
         }
 
-        if (!anyPlayed)
-        {
-            return true;
-        }
-
-        return latestPlay.HasValue && latestPlay.Value < cutoff;
+        return CandidateEvaluator.IsStale(states, cutoff);
     }
 
     private async Task SyncCollectionAsync(List<BaseItem> staleItems)
     {
-        var config = Plugin.Instance.Configuration;
+        var config = Config;
         var staleIds = staleItems.Select(i => i.InternalId).ToList();
 
         var existing = _libraryManager.GetItemList(new InternalItemsQuery
@@ -307,10 +308,10 @@ public class LeavingSoonScanner
                 var tmdb = item.ProviderIds.TryGetValue("Tmdb", out var tmdbValue) ? tmdbValue : null;
                 if (int.TryParse(tmdb, out var tmdbId))
                 {
-                    var movieId = await _radarr.FindMovieIdByTmdbAsync(tmdbId, cancellationToken).ConfigureAwait(false);
+                    var movieId = await _remover.FindMovieIdByTmdbAsync(tmdbId, cancellationToken).ConfigureAwait(false);
                     if (movieId.HasValue)
                     {
-                        await _radarr.DeleteMovieAsync(movieId.Value, config.DeleteFiles, cancellationToken).ConfigureAwait(false);
+                        await _remover.DeleteMovieAsync(movieId.Value, config.DeleteFiles, cancellationToken).ConfigureAwait(false);
                     }
                 }
             }
@@ -319,10 +320,10 @@ public class LeavingSoonScanner
                 var tvdb = item.ProviderIds.TryGetValue("Tvdb", out var tvdbValue) ? tvdbValue : null;
                 if (int.TryParse(tvdb, out var tvdbId))
                 {
-                    var seriesId = await _sonarr.FindSeriesIdByTvdbAsync(tvdbId, cancellationToken).ConfigureAwait(false);
+                    var seriesId = await _remover.FindSeriesIdByTvdbAsync(tvdbId, cancellationToken).ConfigureAwait(false);
                     if (seriesId.HasValue)
                     {
-                        await _sonarr.DeleteSeriesAsync(seriesId.Value, config.DeleteFiles, cancellationToken).ConfigureAwait(false);
+                        await _remover.DeleteSeriesAsync(seriesId.Value, config.DeleteFiles, cancellationToken).ConfigureAwait(false);
                     }
                 }
             }
