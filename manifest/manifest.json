@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "0.1.2",
+        "changelog": "See https://github.com/codeliter/emby-leavingsoon/releases/tag/v0.1.2",
+        "targetAbi": "4.9.1.90",
+        "sourceUrl": "https://github.com/codeliter/emby-leavingsoon/releases/download/v0.1.2/Emby.Plugin.LeavingSoon.dll",
+        "checksum": "676b80deb3b9489808ffd8a3bf2c79c1",
+        "timestamp": "2026-08-20T20:33:16Z"
+      },
+      {
         "version": "0.1.1",
         "changelog": "See https://github.com/codeliter/emby-leavingsoon/releases/tag/v0.1.1",
         "targetAbi": "4.9.1.90",
