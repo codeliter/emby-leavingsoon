@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  PROJECT: src/Emby.Plugin.LeavingSoon/Emby.Plugin.LeavingSoon.csproj
+  DLL: Emby.Plugin.LeavingSoon.dll
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set assembly version
+        run: |
+          sed -i "s|<AssemblyVersion>.*</AssemblyVersion>|<AssemblyVersion>${{ steps.version.outputs.version }}</AssemblyVersion>|" "$PROJECT"
+          sed -i "s|<FileVersion>.*</FileVersion>|<FileVersion>${{ steps.version.outputs.version }}</FileVersion>|" "$PROJECT"
+
+      - name: Build
+        run: dotnet publish "$PROJECT" -c Release -o out
+
+      - name: Checksum
+        id: checksum
+        run: echo "md5=$(md5sum out/$DLL | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/${{ env.DLL }}
+          generate_release_notes: true
+
+      - name: Update catalog manifest
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          MD5: ${{ steps.checksum.outputs.md5 }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 - "$VERSION" "$MD5" "$REPO" <<'EOF'
+          import json, sys, datetime
+          version, md5, repo = sys.argv[1], sys.argv[2], sys.argv[3]
+          with open("manifest/manifest.json") as f:
+              manifest = json.load(f)
+          manifest[0]["versions"].insert(0, {
+              "version": version,
+              "changelog": f"See https://github.com/{repo}/releases/tag/v{version}",
+              "targetAbi": "4.9.1.90",
+              "sourceUrl": f"https://github.com/{repo}/releases/download/v{version}/Emby.Plugin.LeavingSoon.dll",
+              "checksum": md5,
+              "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+          })
+          with open("manifest/manifest.json", "w") as f:
+              json.dump(manifest, f, indent=2)
+          EOF
+
+      - name: Commit manifest
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "manifest: v${{ steps.version.outputs.version }}"
+          file_pattern: manifest/manifest.json

@@ -1,0 +1,12 @@
+[
+  {
+    "guid": "7f3a9c2e-4b1d-4e8f-9a6c-2d5b8e1f3a07",
+    "name": "Leaving Soon",
+    "description": "Surfaces movies and seasons nobody has watched in a while in a collection, then coordinates removal through Sonarr and Radarr.",
+    "overview": "Leaving Soon scans your Emby library for content that has not been played recently, adds it to a 'Leaving Soon' collection for a configurable grace period, then removes it via Sonarr/Radarr. Supports per-season cleanup for TV, dry-run mode, manual or automatic removal, and favorites/tag exclusions.",
+    "category": "General",
+    "owner": "codeliter",
+    "imageUrl": "",
+    "versions": []
+  }
+]
