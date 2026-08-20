@@ -1,0 +1,97 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: write
+
+env:
+  PROJECT: src/Emby.Plugin.LeavingSoon/Emby.Plugin.LeavingSoon.csproj
+  DLL: Emby.Plugin.LeavingSoon.dll
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: gittools/actions/gitversion/setup@v3
+        with:
+          versionSpec: "6.x"
+
+      - uses: gittools/actions/gitversion/execute@v3
+        id: gitversion
+        with:
+          useConfigFile: true
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Set assembly version
+        run: |
+          sed -i "s|<AssemblyVersion>.*</AssemblyVersion>|<AssemblyVersion>${{ steps.gitversion.outputs.assemblySemVer }}</AssemblyVersion>|" "$PROJECT"
+          sed -i "s|<FileVersion>.*</FileVersion>|<FileVersion>${{ steps.gitversion.outputs.assemblySemVer }}</FileVersion>|" "$PROJECT"
+
+      - name: Build
+        run: dotnet publish "$PROJECT" -c Release -o out /p:Version=${{ steps.gitversion.outputs.semVer }}
+
+      - name: Upload DLL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.DLL }}
+          path: out/${{ env.DLL }}
+
+      - name: Tag release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git tag "v${{ steps.gitversion.outputs.semVer }}" 2>/dev/null || true
+          git push origin --tags 2>/dev/null || true
+
+      - name: Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.gitversion.outputs.semVer }}
+          files: out/${{ env.DLL }}
+          generate_release_notes: true
+
+      - name: Update catalog manifest
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          VERSION: ${{ steps.gitversion.outputs.semVer }}
+          REPO: ${{ github.repository }}
+        run: |
+          MD5=$(md5sum out/$DLL | cut -d' ' -f1)
+          python3 - "$VERSION" "$MD5" "$REPO" <<'EOF'
+          import json, sys, datetime
+          version, md5, repo = sys.argv[1], sys.argv[2], sys.argv[3]
+          with open("manifest/manifest.json") as f:
+              manifest = json.load(f)
+          manifest[0]["versions"] = [v for v in manifest[0]["versions"] if v["version"] != version]
+          manifest[0]["versions"].insert(0, {
+              "version": version,
+              "changelog": f"See https://github.com/{repo}/releases/tag/v{version}",
+              "targetAbi": "4.9.1.90",
+              "sourceUrl": f"https://github.com/{repo}/releases/download/v{version}/Emby.Plugin.LeavingSoon.dll",
+              "checksum": md5,
+              "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+          })
+          with open("manifest/manifest.json", "w") as f:
+              json.dump(manifest, f, indent=2)
+          EOF
+
+      - name: Commit manifest
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "manifest: v${{ steps.gitversion.outputs.semVer }}"
+          file_pattern: manifest/manifest.json

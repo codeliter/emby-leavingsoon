@@ -88,11 +88,13 @@ docker build -o out .
 
 ## Releasing
 
-Tag a version and push — CI builds the DLL, attaches it to a GitHub release, and updates the catalog manifest with version, checksum, and download URL:
+Every merge to `main` creates a new release automatically. GitVersion computes the next version from commit messages:
 
-```bash
-git tag v0.2.0.0 && git push --tags
-```
+- `feat:` / `add` in a commit message → minor bump
+- `fix:` / `chore:` / `docs:` etc → patch bump
+- `breaking` / `major` → major bump
+
+CI builds the DLL, tags the release, attaches the DLL, and updates the catalog manifest with version, checksum, and download URL — no manual steps.
 
 ## Requirements
 
