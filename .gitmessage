@@ -1,0 +1,15 @@
+# <type>: <what changed>  (imperative, lowercase, no period)
+#
+# Prefixes that matter (release on every merge to main):
+#   feat:     new user-visible capability        -> minor bump
+#   fix:      correcting wrong behavior          -> patch bump
+#   chore:    tooling, CI, deps, no behavior     -> patch bump
+#   docs:     documentation only                 -> patch bump
+#   refactor: code change, no behavior change    -> patch bump
+#
+#   BREAKING CHANGE: <explanation> in the body   -> major bump
+#
+# Rule of thumb: "new or fixed?"  feat = new, fix = fixed, else chore.
+#
+# Example:
+#   feat: add per-user exclusion list
