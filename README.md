@@ -88,11 +88,12 @@ docker build -o out .
 
 ## Releasing
 
-Every merge to `main` creates a new release automatically. GitVersion computes the next version from commit messages:
+Every merge to `main` creates a new release automatically. Versions follow [Conventional Commits](https://www.conventionalcommits.org):
 
-- `feat:` / `add` in a commit message → minor bump
-- `fix:` / `chore:` / `docs:` etc → patch bump
-- `breaking` / `major` → major bump
+- `feat:` in a commit message → minor bump
+- `fix:` → patch bump
+- `BREAKING CHANGE` in a commit body → major bump
+- Anything else → patch bump (every merge releases)
 
 CI builds the DLL, tags the release, attaches the DLL, and updates the catalog manifest with version, checksum, and download URL — no manual steps.
 
