@@ -32,5 +32,10 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             Name = "leavingsoon",
             EmbeddedResourcePath = GetType().Namespace + ".Configuration.configPage.html"
         };
+        yield return new PluginPageInfo
+        {
+            Name = "LeavingSoonConfigPageJS",
+            EmbeddedResourcePath = GetType().Namespace + ".Configuration.configPage.js"
+        };
     }
 }
