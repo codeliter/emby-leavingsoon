@@ -1,0 +1,25 @@
+<div
+    data-role="page"
+    class="type-interior leavingSoonPage"
+    data-require="emby-button"
+    data-controller="__plugin/LeavingSoonPageJS">
+    <div class="content-primary">
+        <div class="sectionTitleContainer flex align-items-center">
+            <h2 class="sectionTitle">Leaving Soon</h2>
+        </div>
+
+        <p class="fieldDescription">
+            These items haven't been watched in a while. Once their grace period expires they will be removed from the library via Sonarr/Radarr.
+            Watch an item to rescue it automatically, or use the buttons below.
+        </p>
+
+        <div id="LeavingSoonStatus" class="fieldDescription" style="margin: 1em 0;">Loading…</div>
+
+        <div id="LeavingSoonList" style="display: flex; flex-direction: column; gap: 0.5em;"></div>
+
+        <div class="verticalSection" style="margin-top: 2em;">
+            <h3 class="sectionTitle">Recent activity</h3>
+            <div id="LeavingSoonAudit" class="fieldDescription" style="white-space: pre-wrap;">Loading…</div>
+        </div>
+    </div>
+</div>

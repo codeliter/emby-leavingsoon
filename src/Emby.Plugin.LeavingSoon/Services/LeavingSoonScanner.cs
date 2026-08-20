@@ -10,6 +10,7 @@ using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.Persistence;
 using MediaBrowser.Model.Logging;
 
 namespace Emby.Plugin.LeavingSoon.Services;
@@ -265,10 +266,25 @@ public class LeavingSoonScanner
                 ItemIdList = staleIds.ToArray()
             }).ConfigureAwait(false);
             _logger.Info($"[LeavingSoon] Created collection '{config.CollectionName}' with {staleIds.Count} items");
+
+            var created = _libraryManager.GetItemList(new InternalItemsQuery
+            {
+                IncludeItemTypes = new[] { nameof(BoxSet) },
+                Name = config.CollectionName
+            }).OfType<BoxSet>().FirstOrDefault();
+            if (created != null)
+            {
+                ApplyPresentation(created, staleItems.Count, config);
+            }
+
             return;
         }
 
-        var current = new HashSet<long>(existing.GetRecursiveChildren().Select(c => c.InternalId));
+        var current = new HashSet<long>(_libraryManager.GetItemList(new InternalItemsQuery
+        {
+            Parent = existing,
+            Recursive = true
+        }).Select(c => c.InternalId));
 
         var toAdd = staleIds.Where(id => !current.Contains(id)).ToArray();
         if (toAdd.Length > 0)
@@ -283,6 +299,21 @@ public class LeavingSoonScanner
         }
 
         _logger.Info($"[LeavingSoon] Collection sync: +{toAdd.Length} -{toRemove.Length}");
+
+        ApplyPresentation(existing, staleIds.Count, config);
+    }
+
+    private void ApplyPresentation(BoxSet collection, int itemCount, PluginConfiguration config)
+    {
+        var overview = "These movies and series haven't been watched in a while and will be removed from the library soon. Watch them now, or remove them from this collection to keep them.";
+        var tagline = itemCount == 1 ? "1 item leaving soon" : $"{itemCount} items leaving soon";
+
+        if (collection.Overview != overview || collection.Tagline != tagline)
+        {
+            collection.Overview = overview;
+            collection.Tagline = tagline;
+            _libraryManager.UpdateItem(collection, collection.GetParent(), ItemUpdateType.MetadataEdit);
+        }
     }
 
     private async Task RemoveAsync(TrackedItem entry, PluginConfiguration config, CancellationToken cancellationToken)

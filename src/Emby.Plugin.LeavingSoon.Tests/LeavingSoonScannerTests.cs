@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Emby.Plugin.LeavingSoon.Configuration;
@@ -110,6 +111,59 @@ public class LeavingSoonScannerTests
         }
 
         return result.ToArray();
+    }
+
+    [Fact]
+    public async Task NewCollection_GetsPresentation()
+    {
+        var movie = StaleMovie();
+        var config = Config(c => c.Mode = RemovalMode.Manual);
+
+        BoxSet? created = null;
+        _library
+            .SetupSequence(l => l.GetItemList(It.IsAny<InternalItemsQuery>()))
+            .Returns(FilterByType(new BaseItem[] { movie }, new[] { "Movie" }))
+            .Returns(Array.Empty<BaseItem>())
+            .Returns(Array.Empty<BaseItem>())
+            .Returns(new BaseItem[] { new BoxSet { Name = "Leaving Soon" } });
+
+        var scanner = new LeavingSoonScanner(_library.Object, _users.Object, _userData.Object, _collections.Object, _logger.Object, _remover.Object, config);
+        await scanner.RunAsync(CancellationToken.None, new Progress<double>());
+
+        _collections.Verify(c => c.CreateCollection(It.Is<CollectionCreationOptions>(o => o.Name == "Leaving Soon")), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExistingCollection_SyncsMembershipAndTagline()
+    {
+        var movie = StaleMovie();
+        var collection = new BoxSet { Id = Guid.NewGuid(), Name = "Leaving Soon" };
+        var config = Config(c => c.Mode = RemovalMode.Manual);
+
+        _library
+            .Setup(l => l.GetItemList(It.IsAny<InternalItemsQuery>()))
+            .Returns((InternalItemsQuery q) =>
+            {
+                if (q.IncludeItemTypes.Contains("BoxSet"))
+                {
+                    return q.Name == "Leaving Soon" ? new BaseItem[] { collection } : Array.Empty<BaseItem>();
+                }
+
+                if (q.Parent == collection)
+                {
+                    return Array.Empty<BaseItem>();
+                }
+
+                return FilterByType(new BaseItem[] { movie }, q.IncludeItemTypes);
+            });
+        _library.Setup(l => l.GetItemById(It.IsAny<Guid>())).Returns((Guid id) => id == movie.Id ? movie : null);
+
+        var scanner = new LeavingSoonScanner(_library.Object, _users.Object, _userData.Object, _collections.Object, _logger.Object, _remover.Object, config);
+        await scanner.RunAsync(CancellationToken.None, new Progress<double>());
+
+        _collections.Verify(c => c.AddToCollection(collection.InternalId, It.Is<long[]>(ids => ids.Contains(movie.InternalId))), Times.Once);
+        Assert.Equal("1 item leaving soon", collection.Tagline);
+        Assert.Contains("removed from the library soon", collection.Overview);
     }
 
     [Fact]

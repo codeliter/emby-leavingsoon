@@ -37,5 +37,18 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             Name = "LeavingSoonConfigPageJS",
             EmbeddedResourcePath = GetType().Namespace + ".Configuration.configPage.js"
         };
+        yield return new PluginPageInfo
+        {
+            Name = "leavingsoonpage",
+            EmbeddedResourcePath = GetType().Namespace + ".Configuration.leavingSoonPage.html",
+            EnableInMainMenu = true,
+            DisplayName = "Leaving Soon",
+            MenuIcon = "hourglass_empty"
+        };
+        yield return new PluginPageInfo
+        {
+            Name = "LeavingSoonPageJS",
+            EmbeddedResourcePath = GetType().Namespace + ".Configuration.leavingSoonPage.js"
+        };
     }
 }
